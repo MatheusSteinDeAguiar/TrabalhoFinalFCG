@@ -1,0 +1,79 @@
+FUNCTION main():
+    // Cria o mundo do jogo
+    cria_mapa()
+    spawn_jogador()
+    spawn_inimigos()
+
+    // Loop Principal
+    WHILE True:
+        // Trata o input do jogador
+        direcao_do_movimento = get_player_input()
+        move_jogador(direcao_do_movimento)
+
+        // Trata movimentacao dos inimigos
+        move_enemies()
+
+        // Trata bombas e seus efeitos no mundo
+        if deve_spawnar_bomba():
+            spawn_bomba()
+        trata_efeito_de_bomba()
+
+        // Checa vitoria/derrota
+        if player_ganhou():
+            print("You won!")
+            break
+        if player_perdeu():
+            print("You lost!")
+            break
+
+    // Limpa a tela
+    clean_up()
+
+FUNCTION cria_mapa():
+    // Cria e populacao o mapa
+    ...
+
+FUNCTION spawn_jogador():
+    // Spawna o jogador no mapa
+    ...
+
+FUNCTION spawn_inimigos():
+    // Spawna inimigos no mapa
+    ...
+
+FUNCTION get_player_input():
+    // WASD
+    ...
+
+FUNCTION move_jogador(direcao):
+    // Move o jogador na dada direcao no mapa
+    ...
+
+FUNCTION move_inimigos():
+    // Move inimigos aleatoriamente
+    ...
+
+FUNCTION deve_spawnar_bomba():
+    // Determina se o jogador quer ou não colocar uma bomba
+    ...
+
+FUNCTION spawn_bomba():
+    // Coloca uma bomba no mapa
+    ...
+
+FUNCTION trata_efeito_de_bomba():
+    // trata spawn/explosao de bombas no mapa
+    // efeitos da explosão, como afeta o mundo
+    ...
+
+FUNCTION player_ganhou():
+    // Checa se o jogador ganhou o jogo
+    ...
+
+FUNCTION player_lost():
+    // Checa se o jogador perdeu o jogo
+    ...
+
+FUNCTION clean_up():
+    // Limpa todos os recursos utilizados pelo jogo
+    ...
