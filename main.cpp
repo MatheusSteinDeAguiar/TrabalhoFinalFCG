@@ -112,13 +112,7 @@ bool g_LeftMouseButtonPressed = false;
 bool g_RightMouseButtonPressed = false; // Análogo para botão direito do mouse
 bool g_MiddleMouseButtonPressed = false; // Análogo para botão do meio do mouse
 
-// Variáveis que definem a câmera em coordenadas esféricas, controladas pelo
-// usuário através do mouse (veja função CursorPosCallback()). A posição
-// efetiva da câmera é calculada dentro da função main(), dentro do loop de
-// renderização.
-float g_CameraTheta = 0.0f; // Ângulo no plano ZX em relação ao eixo Z
-float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
-float g_CameraDistance = 3.5f; // Distância da câmera para a origem
+
 
 // Variáveis que controlam rotação do antebraço
 float g_ForearmAngleZ = 0.0f;
@@ -139,8 +133,20 @@ GLuint g_GpuProgramID = 0;
 
 
 // #########################################################################################
+// ####################CONSTANTES PARA A CAMERA############################################
 // #########################################################################################
-// #########################################################################################
+
+
+
+// Variáveis que definem a câmera em coordenadas esféricas, controladas pelo
+// usuário através do mouse (veja função CursorPosCallback()). A posição
+// efetiva da câmera é calculada dentro da função main(), dentro do loop de
+// renderização.
+float g_CameraTheta = 0.0f; // Ângulo no plano ZX em relação ao eixo Z
+float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
+float g_CameraDistance = 3.5f; // Distância da câmera para a origem
+
+
 // Variaveis que indicam se as teclas de movimentação foram pressionadas
 // O valor dessas variaveis será determinado na função KeyCallback, mas serão utilizadas na função main
 // modificando os vetor de posicao da camera
@@ -149,6 +155,8 @@ bool A_press = false;
 bool S_press = false;
 bool D_press = false;
 
+// free_camera = false, significa camera fixa
+// free_camera = true, significa camera livre WASD
 bool free_camera = false;
 
 // Variaveis que guardam as coordenadas correspondentes à posição atual da camera
@@ -512,17 +520,6 @@ void spawn_jogador()
         // "shader_vertex.glsl".
         glUniform1i(render_as_black_uniform, false);
 
-        // Pedimos para a GPU rasterizar os vértices dos eixos XYZ
-        // apontados pelo VAO como linhas. Veja a definição de
-        // g_VirtualScene["axes"] dentro da função BuildTriangles(), e veja
-        // a documentação da função glDrawElements() em
-        // http://docs.gl/gl3/glDrawElements.
-        //glDrawElements(
-        //    g_VirtualScene["axes"].rendering_mode,
-        //    g_VirtualScene["axes"].num_indices,
-        //    GL_UNSIGNED_INT,
-        //    (void*)g_VirtualScene["axes"].first_index
-        //);
 
         // "Desligamos" o VAO, evitando assim que operações posteriores venham a
         // alterar o mesmo. Isso evita bugs.
@@ -698,6 +695,139 @@ void camera()
         glUniformMatrix4fv(projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
     }
 }
+
+// Definição da função que será chamada sempre que o usuário pressionar alguma
+// tecla do teclado. Veja http://www.glfw.org/docs/latest/input_guide.html#input_key
+void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
+{
+    // =================
+    // Não modifique este loop! Ele é utilizando para correção automatizada dos
+    // laboratórios. Deve ser sempre o primeiro comando desta função KeyCallback().
+    for (int i = 0; i < 10; ++i)
+        if (key == GLFW_KEY_0 + i && action == GLFW_PRESS && mod == GLFW_MOD_SHIFT)
+            std::exit(100 + i);
+    // =================
+
+    // Se o usuário pressionar a tecla ESC, fechamos a janela.
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, GL_TRUE);
+
+    // O código abaixo implementa a seguinte lógica:
+    //   Se apertar tecla X       então g_AngleX += delta;
+    //   Se apertar tecla shift+X então g_AngleX -= delta;
+    //   Se apertar tecla Y       então g_AngleY += delta;
+    //   Se apertar tecla shift+Y então g_AngleY -= delta;
+    //   Se apertar tecla Z       então g_AngleZ += delta;
+    //   Se apertar tecla shift+Z então g_AngleZ -= delta;
+
+    float delta = 3.141592 / 16; // 22.5 graus, em radianos.
+
+    if (key == GLFW_KEY_X && action == GLFW_PRESS)
+    {
+        g_AngleX += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
+    }
+
+    if (key == GLFW_KEY_Y && action == GLFW_PRESS)
+    {
+        g_AngleY += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
+    }
+    if (key == GLFW_KEY_Z && action == GLFW_PRESS)
+    {
+        g_AngleZ += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
+    }
+
+    // Se o usuário apertar a tecla espaço, resetamos os ângulos de Euler para zero.
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
+    {
+        g_AngleX = 0.0f;
+        g_AngleY = 0.0f;
+        g_AngleZ = 0.0f;
+        g_ForearmAngleX = 0.0f;
+        g_ForearmAngleZ = 0.0f;
+        g_TorsoPositionX = 0.0f;
+        g_TorsoPositionY = 0.0f;
+    }
+
+    // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
+    if (key == GLFW_KEY_P && action == GLFW_PRESS)
+    {
+        g_UsePerspectiveProjection = true;
+    }
+
+    // Se o usuário apertar a tecla O, utilizamos projeção ortográfica.
+    if (key == GLFW_KEY_O && action == GLFW_PRESS)
+    {
+        g_UsePerspectiveProjection = false;
+    }
+
+    // Se o usuário apertar a tecla H, fazemos um "toggle" do texto informativo mostrado na tela.
+    if (key == GLFW_KEY_H && action == GLFW_PRESS)
+    {
+        g_ShowInfoText = !g_ShowInfoText;
+    }
+
+    // CODIGO WASD
+
+    // pressiona W
+    if (key == GLFW_KEY_W && action == GLFW_PRESS)
+    {
+        W_press = true;
+    }
+
+    // solta W
+    if (key == GLFW_KEY_W && action == GLFW_RELEASE)
+    {
+        W_press = false;
+    }
+
+    // pressiona A
+    if (key == GLFW_KEY_A && action == GLFW_PRESS)
+    {
+        A_press = true;
+    }
+
+    // solta A
+    if (key == GLFW_KEY_A && action == GLFW_RELEASE)
+    {
+        A_press = false;
+    }
+
+    // pressiona S
+    if (key == GLFW_KEY_S && action == GLFW_PRESS)
+    {
+        S_press = true;
+    }
+
+    // solta S
+    if (key == GLFW_KEY_S && action == GLFW_RELEASE)
+    {
+        S_press = false;
+    }
+
+    // pressiona D
+    if (key == GLFW_KEY_D && action == GLFW_PRESS)
+    {
+       D_press = true;
+    }
+
+    // solta D
+    if (key == GLFW_KEY_D && action == GLFW_RELEASE)
+    {
+        D_press = false;
+    }
+
+    // L é o toggle da camera entre livre e fixa
+    if (key == GLFW_KEY_L && action == GLFW_PRESS)
+    {
+        free_camera = !free_camera;
+
+        // se a tecla L for apertada, mudamos o modo de camera e a resetamos
+        g_CameraTheta = 0.0f; // Ângulo no plano ZX em relação ao eixo Z
+        g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
+        g_CameraDistance = 3.5f; // Distância da câmera para a origem
+    }
+}
+
 
 // Função que pega a matriz M e guarda a mesma no topo da pilha
 void PushMatrix(glm::mat4 M)
@@ -1374,137 +1504,7 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
         g_CameraDistance = verysmallnumber;
 }
 
-// Definição da função que será chamada sempre que o usuário pressionar alguma
-// tecla do teclado. Veja http://www.glfw.org/docs/latest/input_guide.html#input_key
-void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
-{
-    // =================
-    // Não modifique este loop! Ele é utilizando para correção automatizada dos
-    // laboratórios. Deve ser sempre o primeiro comando desta função KeyCallback().
-    for (int i = 0; i < 10; ++i)
-        if (key == GLFW_KEY_0 + i && action == GLFW_PRESS && mod == GLFW_MOD_SHIFT)
-            std::exit(100 + i);
-    // =================
 
-    // Se o usuário pressionar a tecla ESC, fechamos a janela.
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, GL_TRUE);
-
-    // O código abaixo implementa a seguinte lógica:
-    //   Se apertar tecla X       então g_AngleX += delta;
-    //   Se apertar tecla shift+X então g_AngleX -= delta;
-    //   Se apertar tecla Y       então g_AngleY += delta;
-    //   Se apertar tecla shift+Y então g_AngleY -= delta;
-    //   Se apertar tecla Z       então g_AngleZ += delta;
-    //   Se apertar tecla shift+Z então g_AngleZ -= delta;
-
-    float delta = 3.141592 / 16; // 22.5 graus, em radianos.
-
-    if (key == GLFW_KEY_X && action == GLFW_PRESS)
-    {
-        g_AngleX += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-
-    if (key == GLFW_KEY_Y && action == GLFW_PRESS)
-    {
-        g_AngleY += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-    if (key == GLFW_KEY_Z && action == GLFW_PRESS)
-    {
-        g_AngleZ += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-
-    // Se o usuário apertar a tecla espaço, resetamos os ângulos de Euler para zero.
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
-    {
-        g_AngleX = 0.0f;
-        g_AngleY = 0.0f;
-        g_AngleZ = 0.0f;
-        g_ForearmAngleX = 0.0f;
-        g_ForearmAngleZ = 0.0f;
-        g_TorsoPositionX = 0.0f;
-        g_TorsoPositionY = 0.0f;
-    }
-
-    // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
-    if (key == GLFW_KEY_P && action == GLFW_PRESS)
-    {
-        g_UsePerspectiveProjection = true;
-    }
-
-    // Se o usuário apertar a tecla O, utilizamos projeção ortográfica.
-    if (key == GLFW_KEY_O && action == GLFW_PRESS)
-    {
-        g_UsePerspectiveProjection = false;
-    }
-
-    // Se o usuário apertar a tecla H, fazemos um "toggle" do texto informativo mostrado na tela.
-    if (key == GLFW_KEY_H && action == GLFW_PRESS)
-    {
-        g_ShowInfoText = !g_ShowInfoText;
-    }
-
-    // CODIGO WASD
-
-    // pressiona W
-    if (key == GLFW_KEY_W && action == GLFW_PRESS)
-    {
-        W_press = true;
-    }
-
-    // solta W
-    if (key == GLFW_KEY_W && action == GLFW_RELEASE)
-    {
-        W_press = false;
-    }
-
-    // pressiona A
-    if (key == GLFW_KEY_A && action == GLFW_PRESS)
-    {
-        A_press = true;
-    }
-
-    // solta A
-    if (key == GLFW_KEY_A && action == GLFW_RELEASE)
-    {
-        A_press = false;
-    }
-
-    // pressiona S
-    if (key == GLFW_KEY_S && action == GLFW_PRESS)
-    {
-        S_press = true;
-    }
-
-    // solta S
-    if (key == GLFW_KEY_S && action == GLFW_RELEASE)
-    {
-        S_press = false;
-    }
-
-    // pressiona D
-    if (key == GLFW_KEY_D && action == GLFW_PRESS)
-    {
-       D_press = true;
-    }
-
-    // solta D
-    if (key == GLFW_KEY_D && action == GLFW_RELEASE)
-    {
-        D_press = false;
-    }
-
-    // L é o toggle da camera entre livre e fixa
-    if (key == GLFW_KEY_L && action == GLFW_PRESS)
-    {
-        free_camera = !free_camera;
-
-        // se a tecla L for apertada, mudamos o modo de camera e a resetamos
-        g_CameraTheta = 0.0f; // Ângulo no plano ZX em relação ao eixo Z
-        g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
-        g_CameraDistance = 3.5f; // Distância da câmera para a origem
-    }
-}
 
 // Definimos o callback para impressão de erros da GLFW no terminal
 void ErrorCallback(int error, const char* description)
